@@ -1,0 +1,28 @@
+{% extends 'base.html' %} {% block title %}Order Success{% endblock %} {% block page_title %}Order Confirmed{% endblock %} {% block content %}
+<div class="card p-4">
+  <h4>Thank you — your order has been placed</h4>
+  <p class="text-muted">
+    We've created orders for the sellers involved. Below are the orders created
+    for this checkout.
+  </p>
+  <ul class="list-group mt-3">
+    {% for o in orders %}
+    <li
+      class="list-group-item d-flex justify-content-between align-items-center"
+    >
+      <div>
+        <strong>Order {{ o.id }}</strong> — Seller: {{ o.seller.name }}
+        <div class="small text-muted">Order date: {{ o.order_date }}</div>
+      </div>
+      <div class="fw-semibold">${{ o.total_amount }}</div>
+    </li>
+    {% endfor %}
+  </ul>
+  <div class="mt-3">
+    <a href="{% url 'ecomm_home' %}" class="btn btn-primary">Back to Shop</a>
+    <a href="{% url 'seller_detail' orders.0.seller.id %}" class="btn btn-link"
+      >View Seller Evaluation</a
+    >
+  </div>
+</div>
+{% endblock %}

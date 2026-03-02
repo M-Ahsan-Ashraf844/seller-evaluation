@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Performance Ranking{% endblock %}
+{% block page_title %}Seller Performance Ranking{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-semibold">Ranked by Performance Score</h5>
+        <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+            <i class="fas fa-rotate-right me-1"></i> Refresh
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Rank</th>
+                        <th scope="col">Seller</th>
+                        <th scope="col">Total Orders</th>
+                        <th scope="col">Avg Rating</th>
+                        <th scope="col">Delivery Rate</th>
+                        <th scope="col">Return Rate</th>
+                        <th scope="col">Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for perf in performances %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <a href="{% url 'seller_detail' perf.seller.pk %}" class="text-decoration-none">
+                                    {{ perf.seller.name }}
+                                </a>
+                            </td>
+                            <td>{{ perf.total_orders }}</td>
+                            <td>{{ perf.average_rating|floatformat:1 }} ★</td>
+                            <td>{{ perf.delivery_rate|floatformat:1 }}%</td>
+                            <td>{{ perf.return_rate|floatformat:1 }}%</td>
+                            <td class="fw-bold">
+                                {{ perf.performance_score|floatformat:2 }}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-3">
+                                No performance data available.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

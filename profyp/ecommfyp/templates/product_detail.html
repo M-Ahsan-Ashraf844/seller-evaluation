@@ -1,0 +1,103 @@
+{% extends 'base.html' %} {% block title %}{{ product.name }} - Product{%endblock %} {% block page_title %}Product{% endblock %} {% block content %}
+<div class="row">
+  <div class="col-md-6">
+    <div class="card p-3">
+      {% if product.image_url %}
+      <img
+        src="{{ product.image_url }}"
+        class="img-fluid"
+        alt="{{ product.name }}"
+      />
+      {% else %}
+      <div
+        style="
+          height: 320px;
+          background: #f1f5f9;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+        "
+      >
+        No Image
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-4">
+      <h3>{{ product.name }}</h3>
+      <p class="text-muted">
+        Sold by <strong>{{ product.seller.name }}</strong>
+      </p>
+      <h4 class="text-primary">${{ product.price }}</h4>
+      <p class="mt-3">{{ product.description }}</p>
+      <form method="post" action="{% url 'ecomm_add_to_cart' product.id %}">
+        {% csrf_token %}
+        <input
+          type="hidden"
+          name="next"
+          value="{% url 'ecomm_product_detail' product.id %}"
+        />
+        <div class="mb-3">
+          <label class="form-label">Quantity</label>
+          <input
+            type="number"
+            name="qty"
+            value="1"
+            min="1"
+            class="form-control"
+            style="width: 120px"
+          />
+        </div>
+        <button class="btn btn-primary">Add to Cart</button>
+        <a href="{% url 'ecomm_cart' %}" class="btn btn-link">View Cart</a>
+      </form>
+
+      <hr />
+
+      <h5 class="mt-3">Reviews</h5>
+      {% if reviews %}
+      <ul class="list-group mb-3">
+        {% for r in reviews %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between">
+            <div>
+              <strong>{{ r.rating }}★</strong>
+              <span class="small text-muted"> — {{ r.comment }}</span>
+            </div>
+            <div class="small text-muted">{{ r.review_date }}</div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="mb-3 text-muted">No reviews yet.</div>
+      {% endif %} {% if request.user.is_authenticated %}
+      <form method="post" action="{% url 'ecomm_add_review' product.id %}">
+        {% csrf_token %}
+        <div class="mb-2">
+          <label class="form-label">Rating</label>
+          <select name="rating" class="form-select" style="width: 120px">
+            <option value="5">5</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Comment</label>
+          <textarea name="comment" class="form-control" rows="3"></textarea>
+        </div>
+        <button class="btn btn-outline-primary">Submit Review</button>
+      </form>
+      {% else %}
+      <div class="small">
+        Please <a href="{% url 'login' %}">login</a> to submit a review.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

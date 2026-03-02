@@ -1,0 +1,392 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Performance Reports{% endblock %}
+{% block page_title %}Performance Reports & Analytics{% endblock %}
+
+{% block content %}
+{% if not has_snapshots %}
+<div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+    <i class="fas fa-info-circle me-2"></i>
+    <strong>Note:</strong> Performance snapshots are being created automatically. 
+    If you have sellers with orders, snapshots will be generated for the selected date range.
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+<div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-semibold">Report Filters</h5>
+        <div>
+            <a href="{% url 'reports' %}" class="btn btn-sm btn-outline-secondary me-2">
+                <i class="fas fa-redo me-1"></i> Reset Filters
+            </a>
+            <a href="{% url 'reports_download' %}?{{ request.GET.urlencode }}" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-download me-1"></i> Download CSV
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="date_from" class="form-label">From Date</label>
+                <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}" required>
+            </div>
+            <div class="col-md-3">
+                <label for="date_to" class="form-label">To Date</label>
+                <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}" required>
+            </div>
+            <div class="col-md-4">
+                <label for="seller" class="form-label">Seller (Optional)</label>
+                <select class="form-select" id="seller" name="seller">
+                    <option value="">All Sellers</option>
+                    {% for seller in sellers %}
+                        <option value="{{ seller.id }}" {% if seller_filter == seller.id|stringformat:"s" %}selected{% endif %}>
+                            {{ seller.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-1"></i> Apply Filters
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="row g-4 mb-4">
+    <div class="col-12 col-md-3">
+        <div class="card border-start border-4 border-primary h-100">
+            <div class="card-body">
+                <p class="text-uppercase text-muted small mb-1">Total Sales Volume</p>
+                <h3 class="fw-bold mb-0">${{ total_sales_volume|floatformat:2 }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card border-start border-4 border-success h-100">
+            <div class="card-body">
+                <p class="text-uppercase text-muted small mb-1">Avg Performance Score</p>
+                <h3 class="fw-bold mb-0">{{ avg_performance_score|floatformat:2 }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card border-start border-4 border-info h-100">
+            <div class="card-body">
+                <p class="text-uppercase text-muted small mb-1">Avg Delivery Rate</p>
+                <h3 class="fw-bold mb-0">{{ avg_delivery_rate|floatformat:2 }}%</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card border-start border-4 border-warning h-100">
+            <div class="card-body">
+                <p class="text-uppercase text-muted small mb-1">Avg Return Ratio</p>
+                <h3 class="fw-bold mb-0">{{ avg_return_ratio|floatformat:2 }}%</h3>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row g-4 mb-4">
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0 fw-semibold">Sales Volume Trend</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="salesChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0 fw-semibold">Performance Score Trend</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="performanceChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0 fw-semibold">Delivery Rate Trend</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="deliveryChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0 fw-semibold">Top Performers (Period)</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Seller</th>
+                                <th scope="col" class="text-center">Avg Score</th>
+                                <th scope="col" class="text-end">Sales</th>
+                                <th scope="col" class="text-center">Orders</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for seller_data in top_sellers %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'seller_detail' seller_data.seller__id %}" class="text-decoration-none">
+                                            {{ seller_data.seller__name }}
+                                        </a>
+                                    </td>
+                                    <td class="text-center fw-semibold">
+                                        {{ seller_data.avg_score|floatformat:2 }}
+                                    </td>
+                                    <td class="text-end">
+                                        ${{ seller_data.total_sales|floatformat:2 }}
+                                    </td>
+                                    <td class="text-center">
+                                        {{ seller_data.total_orders }}
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-3">
+                                        {% if not has_snapshots %}
+                                            <strong>No snapshot data available.</strong>
+                                            <br><small class="text-info">
+                                                Snapshots are being created automatically. 
+                                                Try refreshing the page or check back later.
+                                            </small>
+                                        {% else %}
+                                            No sellers found for selected period.
+                                            <br><small>Try adjusting the date range or filters.</small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-semibold">Detailed Performance Snapshots</h5>
+        <span class="badge bg-soft-primary text-dark">
+            {{ snapshot_count }} snapshot{{ snapshot_count|pluralize }}
+        </span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                        <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Seller</th>
+                        <th scope="col" class="text-end">Placed Sales</th>
+                        <th scope="col" class="text-center">Placed Orders</th>
+                        <th scope="col" class="text-end">Delivered Sales</th>
+                        <th scope="col" class="text-center">Delivered Orders</th>
+                        <th scope="col" class="text-center">Avg Rating</th>
+                        <th scope="col" class="text-center">Delivery Rate</th>
+                        <th scope="col" class="text-center">Return Ratio</th>
+                        <th scope="col" class="text-center">Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for snapshot in snapshots %}
+                        <tr>
+                            <td>{{ snapshot.date|date:"Y-m-d" }}</td>
+                            <td>
+                                <a href="{% url 'seller_detail' snapshot.seller.pk %}" class="text-decoration-none">
+                                    {{ snapshot.seller.name }}
+                                </a>
+                            </td>
+                            <td class="text-end">${{ snapshot.sales_volume|floatformat:2 }}</td>
+                            <td class="text-center">{{ snapshot.order_count }}</td>
+                            <td class="text-end">${{ snapshot.delivered_sales|floatformat:2 }}</td>
+                            <td class="text-center">{{ snapshot.delivered_orders }}</td>
+                            <td class="text-center">{{ snapshot.avg_rating|floatformat:1 }} ★</td>
+                            <td class="text-center">{{ snapshot.delivery_rate|floatformat:1 }}%</td>
+                            <td class="text-center">{{ snapshot.return_ratio|floatformat:1 }}%</td>
+                            <td class="text-center fw-semibold">{{ snapshot.performance_score|floatformat:2 }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="10" class="text-center text-muted py-3">
+                                {% if not has_snapshots %}
+                                    <strong>No snapshots found for selected period.</strong>
+                                    <br><small class="text-info">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Snapshots are being created automatically. 
+                                        If you have sellers with orders, snapshots will be generated.
+                                    </small>
+                                    <br><small class="mt-2 d-block">
+                                        <a href="{% url 'dashboard' %}" class="text-decoration-none">
+                                            <i class="fas fa-arrow-left me-1"></i> Go to Dashboard
+                                        </a>
+                                    </small>
+                                {% else %}
+                                    No snapshots found for selected period.
+                                    <br><small>Try adjusting the date range or select a different seller.</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    const salesData = {{ daily_sales|safe }};
+    const salesLabels = salesData.length > 0 ? salesData.map(item => {
+        const d = new Date(item.date);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }) : ['No Data'];
+    const salesValues = salesData.length > 0 ? salesData.map(item => parseFloat(item.total_sales || 0)) : [0];
+    
+    if (salesData.length > 0) {
+        new Chart(document.getElementById('salesChart'), {
+        type: 'line',
+        data: {
+            labels: salesLabels,
+            datasets: [{
+                label: 'Sales Volume ($)',
+                data: salesValues,
+                borderColor: 'rgb(30, 42, 58)',
+                backgroundColor: 'rgba(30, 42, 58, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+        });
+    } else {
+        var el = document.getElementById('salesChart');
+        if (el) el.parentElement.innerHTML = 
+            '<div class="text-center text-muted py-5"><i class="fas fa-chart-line fa-3x mb-3"></i><p>No sales data available for selected period.</p></div>';
+    }
+    const perfData = {{ performance_trend|safe }};
+    const perfLabels = perfData.length > 0 ? perfData.map(item => {
+        const d = new Date(item.date);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }) : ['No Data'];
+    const perfValues = perfData.length > 0 ? perfData.map(item => parseFloat(item.avg_score || 0)) : [0];
+    
+    if (perfData.length > 0) {
+        new Chart(document.getElementById('performanceChart'), {
+        type: 'line',
+        data: {
+            labels: perfLabels,
+            datasets: [{
+                label: 'Performance Score',
+                data: perfValues,
+                borderColor: 'rgb(25, 135, 84)',
+                backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+        });
+    } else {
+        var pel = document.getElementById('performanceChart');
+        if (pel) pel.parentElement.innerHTML = 
+            '<div class="text-center text-muted py-5"><i class="fas fa-chart-line fa-3x mb-3"></i><p>No performance data available for selected period.</p></div>';
+    }
+    const deliveryData = {{ delivery_trend|safe }};
+    const deliveryLabels = deliveryData.length > 0 ? deliveryData.map(item => {
+        const d = new Date(item.date);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }) : ['No Data'];
+    const deliveryValues = deliveryData.length > 0 ? deliveryData.map(item => parseFloat(item.avg_delivery || 0)) : [0];
+    
+    if (deliveryData.length > 0) {
+        new Chart(document.getElementById('deliveryChart'), {
+        type: 'line',
+        data: {
+            labels: deliveryLabels,
+            datasets: [{
+                label: 'Delivery Rate (%)',
+                data: deliveryValues,
+                borderColor: 'rgb(13, 110, 253)',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+        });
+    } else {
+        var delEl = document.getElementById('deliveryChart');
+        if (delEl) delEl.parentElement.innerHTML = 
+            '<div class="text-center text-muted py-5"><i class="fas fa-chart-line fa-3x mb-3"></i><p>No delivery data available for selected period.</p></div>';
+    }
+</script>
+{% endblock %}
+{% endblock %}

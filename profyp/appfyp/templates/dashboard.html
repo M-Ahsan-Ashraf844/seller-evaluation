@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 col-md-4">
+        <div class="card border-start border-4 border-primary h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-uppercase text-muted small mb-1">Total Sellers</p>
+                    <h3 class="fw-bold mb-0">{{ total_sellers }}</h3>
+                </div>
+                <span class="text-primary">
+                    <i class="fas fa-users fa-2x"></i>
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card border-start border-4 border-success h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-uppercase text-muted small mb-1">Total Orders</p>
+                    <h3 class="fw-bold mb-0">{{ total_orders }}</h3>
+                </div>
+                <span class="text-success">
+                    <i class="fas fa-shopping-cart fa-2x"></i>
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card border-start border-4 border-warning h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="text-uppercase text-muted small mb-1">Total Reviews</p>
+                    <h3 class="fw-bold mb-0">{{ total_reviews }}</h3>
+                </div>
+                <span class="text-warning">
+                    <i class="fas fa-star fa-2x"></i>
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1 mt-md-4">
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-semibold">Recent Orders</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                    <i class="fas fa-rotate-right me-1"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Order</th>
+                                <th scope="col">Seller</th>
+                                <th scope="col">Date</th>
+                                <th scope="col" class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                                <tr>
+                                    <td>#{{ order.id }}</td>
+                                    <td>{{ order.seller.name }}</td>
+                                    <td>{{ order.order_date|date:"Y-m-d" }}</td>
+                                    <td class="text-end">${{ order.total_amount }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-3">No recent orders to display.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-semibold">Top Performers</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                    <i class="fas fa-rotate-right me-1"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Seller</th>
+                                <th scope="col" class="text-center">Orders</th>
+                                <th scope="col" class="text-center">Rating</th>
+                                <th scope="col" class="text-end">Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for perf in top_performances %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'seller_detail' perf.seller.pk %}" class="text-decoration-none">{{ perf.seller.name }}</a>
+                                    </td>
+                                    <td class="text-center">{{ perf.total_orders }}</td>
+                                    <td class="text-center">{{ perf.average_rating|floatformat:1 }} ★</td>
+                                    <td class="text-end fw-semibold">{{ perf.performance_score|floatformat:2 }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-3">No performance data available yet.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1 mt-md-4">
+    <div class="col-12 col-md-3">
+        <div class="card border-start border-4 border-info h-100">
+            <div class="card-body">
+                <p class="text-uppercase text-muted small mb-1">Total Revenue</p>
+                <h4 class="fw-bold mb-0">${{ net_revenue|floatformat:2 }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card border-start border-4 border-success h-100">
+            <div class="card-body">
+                <p class="text-uppercase text-muted small mb-1">Avg Order Value</p>
+                <h4 class="fw-bold mb-0">${{ total_revenue|floatformat:2 }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card border-start border-4 border-primary h-100">
+            <div class="card-body">
+                <p class="text-uppercase text-muted small mb-1">Delivery Success Rate</p>
+                <h4 class="fw-bold mb-0">{{ delivery_success_rate|floatformat:1 }}%</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card border-start border-4 border-warning h-100">
+            <div class="card-body">
+                <p class="text-uppercase text-muted small mb-1">Avg Rating</p>
+                <h4 class="fw-bold mb-0">{{ avg_system_rating|floatformat:1 }} ★</h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1 mt-md-4">
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0 fw-semibold">Revenue Trend (Last 30 Days)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="revenueChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0 fw-semibold">Orders Trend (Last 30 Days)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="ordersChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1 mt-md-4">
+    <div class="col-12">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0 fw-semibold">Top vs Bottom Performers Comparison</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="performersChart" height="150"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const revenueData = {{ revenue_trend|safe }};
+    const revenueLabels = Array.isArray(revenueData) && revenueData.length ? revenueData.map(function(item) {
+        return new Date(item.order_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }) : ['No data'];
+    const revenueValues = Array.isArray(revenueData) && revenueData.length ? revenueData.map(function(item) { return parseFloat(item.revenue || 0); }) : [0];
+    if (document.getElementById('revenueChart')) {
+        new Chart(document.getElementById('revenueChart'), {
+            type: 'line',
+            data: {
+                labels: revenueLabels,
+                datasets: [{ label: 'Daily Revenue ($)', data: revenueValues, borderColor: 'rgb(25, 135, 84)', backgroundColor: 'rgba(25, 135, 84, 0.1)', tension: 0.4, fill: true }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { callback: function(v) { return '$' + v.toLocaleString(); } } } } }
+        });
+    }
+
+    const ordersData = {{ orders_trend|safe }};
+    const ordersLabels = Array.isArray(ordersData) && ordersData.length ? ordersData.map(function(item) {
+        return new Date(item.order_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }) : ['No data'];
+    const ordersValues = Array.isArray(ordersData) && ordersData.length ? ordersData.map(function(item) { return parseInt(item.count || 0, 10); }) : [0];
+    if (document.getElementById('ordersChart')) {
+        new Chart(document.getElementById('ordersChart'), {
+            type: 'bar',
+            data: {
+                labels: ordersLabels,
+                datasets: [{ label: 'Daily Orders', data: ordersValues, backgroundColor: 'rgba(13, 110, 253, 0.7)', borderColor: 'rgb(13, 110, 253)', borderWidth: 1 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+    }
+
+    const topPerformers = {{ top_5_performers|safe }};
+    const bottomPerformers = {{ bottom_5_performers|safe }};
+    const topLabels = Array.isArray(topPerformers) && topPerformers.length ? topPerformers.map(function(item) { return item.seller__name || 'N/A'; }) : [];
+    const topScores = Array.isArray(topPerformers) && topPerformers.length ? topPerformers.map(function(item) { return parseFloat(item.performance_score || 0); }) : [];
+    const bottomLabels = Array.isArray(bottomPerformers) && bottomPerformers.length ? bottomPerformers.map(function(item) { return item.seller__name || 'N/A'; }) : [];
+    const bottomScores = Array.isArray(bottomPerformers) && bottomPerformers.length ? bottomPerformers.map(function(item) { return parseFloat(item.performance_score || 0); }) : [];
+    const allLabels = topLabels.length || bottomLabels.length ? topLabels.concat(bottomLabels) : ['No data'];
+    if (document.getElementById('performersChart') && allLabels.length) {
+        new Chart(document.getElementById('performersChart'), {
+            type: 'bar',
+            data: {
+                labels: allLabels,
+                datasets: [
+                    { label: 'Top 5', data: topScores.concat(Array(bottomLabels.length).fill(null)), backgroundColor: 'rgba(25, 135, 84, 0.7)', borderColor: 'rgb(25, 135, 84)', borderWidth: 1 },
+                    { label: 'Bottom 5', data: Array(topLabels.length).fill(null).concat(bottomScores), backgroundColor: 'rgba(220, 53, 69, 0.7)', borderColor: 'rgb(220, 53, 69)', borderWidth: 1 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+        });
+    }
+})();
+</script>
+{% endblock %}
+{% endblock %}

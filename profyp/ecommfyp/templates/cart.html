@@ -1,0 +1,35 @@
+{% extends 'base.html' %} {% block title %}Cart{% endblock %} {% block page_title %}Your Cart{% endblock %} {% block content %}
+<div class="card p-3">
+  <h5 class="mb-3">Items in your cart</h5>
+  {% if items %}
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Seller</th>
+          <th>Qty</th>
+          <th>Line</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+        <tr>
+          <td>{{ it.product.name }}</td>
+          <td>{{ it.product.seller.name }}</td>
+          <td>{{ it.qty }}</td>
+          <td>${{ it.line_total|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="d-flex justify-content-between align-items-center mt-3">
+    <div class="fw-semibold">Total: ${{ total }}</div>
+    <a href="{% url 'ecomm_checkout' %}" class="btn btn-success">Checkout</a>
+  </div>
+  {% else %}
+  <div class="p-4">Your cart is empty.</div>
+  {% endif %}
+</div>
+{% endblock %}

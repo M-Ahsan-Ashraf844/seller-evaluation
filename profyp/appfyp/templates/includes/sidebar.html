@@ -1,0 +1,92 @@
+{% load static %}
+<div class="text-white" id="sidebar-wrapper">
+  <div class="sidebar-heading text-center py-4 border-bottom border-secondary">
+    <i class="fas fa-store fa-2x mb-2"></i>
+    <h4 class="fw-bold mb-0">SellerEval</h4>
+    <small class="text-white-50">Performance Analytics</small>
+  </div>
+  <div class="list-group list-group-flush pt-2">
+    <a
+      href="{% url 'dashboard' %}"
+      class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+    >
+      <i class="fas fa-tachometer-alt me-3"></i>
+      Dashboard
+    </a>
+    <a
+      href="{% url 'seller_list' %}"
+      class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'seller_list' or 'seller' in request.path %}active{% endif %}"
+    >
+      <i class="fas fa-users me-3"></i>
+      Sellers
+    </a>
+    <a
+      href="{% url 'order_list' %}"
+      class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'order_list' %}active{% endif %}"
+    >
+      <i class="fas fa-shopping-cart me-3"></i>
+      Orders
+    </a>
+    <a
+      href="{% url 'review_list' %}"
+      class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'review_list' %}active{% endif %}"
+    >
+      <i class="fas fa-star me-3"></i>
+      Reviews
+    </a>
+    <a
+      href="{% url 'performance_ranking' %}"
+      class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'performance_ranking' %}active{% endif %}"
+    >
+      <i class="fas fa-chart-line me-3"></i>
+      Performance
+    </a>
+    <a
+      href="{% url 'reports' %}"
+      class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'reports' %}active{% endif %}"
+    >
+      <i class="fas fa-file-alt me-3"></i>
+      Reports
+    </a>
+ <a
+      href="{% url 'ecomerce' %}"
+      class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'reports' %}active{% endif %}"
+    >
+      <i class="fas fa-file-alt me-3"></i>
+      view your site
+    </a>
+    <hr class="bg-secondary" />
+    <a
+      href="{% url 'admin:index' %}"
+      class="list-group-item list-group-item-action"
+    >
+      <i class="fas fa-cog me-3"></i>
+      Admin
+    </a>
+  </div>
+  <style>
+    #sidebar-wrapper .list-group-item {
+      background-color: transparent;
+      color: rgba(255, 255, 255, 0.8);
+      border: none;
+      padding: 0.9rem 1.5rem;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    #sidebar-wrapper .list-group-item:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      padding-left: 2rem;
+    }
+    #sidebar-wrapper .list-group-item.active {
+      background-color: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      border-left: 4px solid #ffc107;
+      font-weight: 600;
+    }
+    #sidebar-wrapper .list-group-item i {
+      width: 1.5rem;
+      text-align: center;
+    }
+  </style>
+</div>

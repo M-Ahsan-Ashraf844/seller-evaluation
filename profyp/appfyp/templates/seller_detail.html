@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ seller.name }} - Details{% endblock %}
+{% block page_title %}Seller: {{ seller.name }}{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0 fw-semibold">Seller Information</h5>
+            </div>
+            <div class="card-body">
+                <p><span class="fw-medium">ID:</span> #{{ seller.id }}</p>
+                <p><span class="fw-medium">Email:</span> {{ seller.email }}</p>
+                <p><span class="fw-medium">Phone:</span> {{ seller.phone|default:"—" }}</p>
+                <p>
+                    <span class="fw-medium">Status:</span>
+                    {% if seller.status == 'Active' %}
+                        <span class="badge bg-success-subtle text-success ms-1">Active</span>
+                    {% elif seller.status == 'Under Review' %}
+                        <span class="badge bg-warning-subtle text-warning ms-1">Under Review</span>
+                    {% elif seller.status == 'Suspended' %}
+                        <span class="badge bg-danger-subtle text-danger ms-1">Suspended</span>
+                    {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary ms-1">
+                            {{ seller.get_status_display }}
+                        </span>
+                    {% endif %}
+                </p>
+                <p>
+                    <span class="fw-medium">Registered:</span>
+                    {{ seller.created_at|date:"Y-m-d" }}
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-8">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-semibold">Performance Snapshot</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                    <i class="fas fa-rotate-right me-1"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row text-center g-3">
+                    <div class="col-6 col-md-3">
+                        <h4 class="fw-bold mb-0">{{ performance.total_orders }}</h4>
+                        <small class="text-muted">Total Orders</small>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <h4 class="fw-bold mb-0">
+                            {{ performance.average_rating|floatformat:1 }} ★
+                        </h4>
+                        <small class="text-muted">Avg Rating</small>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <h4 class="fw-bold mb-0">
+                            {{ performance.delivery_rate|floatformat:1 }}%
+                        </h4>
+                        <small class="text-muted">Delivery Rate</small>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <h4 class="fw-bold mb-0">
+                            {{ performance.return_rate|floatformat:1 }}%
+                        </h4>
+                        <small class="text-muted">Return Rate</small>
+                    </div>
+                </div>
+                <hr class="my-4">
+                <div class="text-center">
+                    <h2 class="fw-bold text-primary mb-0">
+                        {{ performance.performance_score|floatformat:2 }}
+                    </h2>
+                    <small class="text-muted">Overall Performance Score</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card mt-4">
+    <div class="card-header border-bottom-0 pb-0">
+        <ul class="nav nav-tabs card-header-tabs" id="sellerTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link active"
+                    id="orders-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#orders-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="orders-pane"
+                    aria-selected="true">
+                    Orders ({{ orders|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link"
+                    id="reviews-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#reviews-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="reviews-pane"
+                    aria-selected="false">
+                    Reviews ({{ reviews|length }})
+                </button>
+            </li>
+        </ul>
+    </div>
+    <div class="card-body">
+        <div class="tab-content" id="sellerTabsContent">
+            <div
+                class="tab-pane fade show active"
+                id="orders-pane"
+                role="tabpanel"
+                aria-labelledby="orders-tab">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Order ID</th>
+                                <th scope="col">Date</th>
+                                <th scope="col" class="text-end">Total</th>
+                                <th scope="col">Delivery Status</th>
+                                <th scope="col">Returned</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in orders %}
+                                <tr>
+                                    <td>#{{ order.id }}</td>
+                                    <td>{{ order.order_date|date:"Y-m-d" }}</td>
+                                    <td class="text-end">
+                                        ${{ order.total_amount }}
+                                    </td>
+                                    <td>{{ order.get_delivery_status_display }}</td>
+                                    <td>
+                                        {% if order.is_returned %}
+                                            <span class="badge bg-danger-subtle text-danger">Yes</span>
+                                        {% else %}
+                                            <span class="badge bg-success-subtle text-success">No</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">
+                                        No orders found.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div
+                class="tab-pane fade"
+                id="reviews-pane"
+                role="tabpanel"
+                aria-labelledby="reviews-tab">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Rating</th>
+                                <th scope="col">Comment</th>
+                                <th scope="col">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for review in reviews %}
+                                <tr>
+                                    <td>{{ review.rating }} ★</td>
+                                    <td>{{ review.comment|truncatechars:80 }}</td>
+                                    <td>
+                                        {{ review.review_date|date:"Y-m-d" }}
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-3">
+                                        No reviews found.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

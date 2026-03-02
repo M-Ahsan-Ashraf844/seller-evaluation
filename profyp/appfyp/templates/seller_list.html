@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sellers{% endblock %}
+{% block page_title %}Seller Management{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-semibold">All Sellers</h5>
+        <span class="text-muted small">Manage and inspect seller performance</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Phone</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Joined</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for seller in sellers %}
+                        <tr>
+                            <td>#{{ seller.id }}</td>
+                            <td class="fw-semibold">{{ seller.name }}</td>
+                            <td>{{ seller.email }}</td>
+                            <td>{{ seller.phone|default:"—" }}</td>
+                            <td>
+                                {% if seller.status == 'Active' %}
+                                    <span class="badge bg-success-subtle text-success">
+                                        Active
+                                    </span>
+                                {% elif seller.status == 'Under Review' %}
+                                    <span class="badge bg-warning-subtle text-warning">
+                                        Under Review
+                                    </span>
+                                {% elif seller.status == 'Suspended' %}
+                                    <span class="badge bg-danger-subtle text-danger">
+                                        Suspended
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary-subtle text-secondary">
+                                        {{ seller.get_status_display }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ seller.created_at|date:"Y-m-d" }}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'seller_detail' seller.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye me-1"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-3">
+                                No sellers found.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
