@@ -177,8 +177,13 @@ def dashboard(request):
         )
         orders_trend = [{'order_date': o['order_date'].isoformat(), 'count': int(o['count'] or 0)} for o in orders_qs]
 
-        top_5_performers = list(top_performances.values('seller__name', 'performance_score')) if top_performances else []
-        bottom_5_performers = list(bottom_performances.values('seller__name', 'performance_score')) if hasattr(bottom_performances, 'values') else []
+        try:
+            top_5_performers = list(top_performances.values('seller__name', 'performance_score')) if hasattr(top_performances, 'values') else []
+            bottom_5_performers = list(bottom_performances.values('seller__name', 'performance_score')) if hasattr(bottom_performances, 'values') else []
+        except Exception:
+            top_5_performers = []
+            bottom_5_performers = []
+            bottom_5_performers = list(bottom_performances.values('seller__name', 'performance_score')) if hasattr(bottom_performances, 'values') else []
     except OperationalError:
         revenue_trend = []
         orders_trend = []
