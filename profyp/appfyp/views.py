@@ -66,8 +66,9 @@ def dashboard(request):
     # Denominator: non-returned orders (only orders that can be considered successful)
     deliverable_orders = Order.objects.filter(is_returned=False).count()
     delivery_success_rate = (
-        ((delivered_and_not_returned / deliverable_orders * 100)-system_return_rate) if deliverable_orders > 0 else 0
-    )
+    (delivered_and_not_returned / deliverable_orders * 100)
+    if deliverable_orders > 0 else 0
+)
     
     
     
@@ -115,7 +116,10 @@ def dashboard(request):
         sellers = sellers.filter(status=status_filter)
 
     for seller in sellers:
-        calculate_performance(seller)
+        try:
+            calculate_performance(seller)
+        except Exception:
+            pass
 
     # Top / bottom performers by score (safe)
     try:
@@ -173,7 +177,7 @@ def dashboard(request):
         )
         orders_trend = [{'order_date': o['order_date'].isoformat(), 'count': int(o['count'] or 0)} for o in orders_qs]
 
-        top_5_performers = list(top_performances.values('seller__name', 'performance_score')) if hasattr(top_performances, 'values') else []
+        top_5_performers = list(top_performances.values('seller__name', 'performance_score')) if top_performances else []
         bottom_5_performers = list(bottom_performances.values('seller__name', 'performance_score')) if hasattr(bottom_performances, 'values') else []
     except OperationalError:
         revenue_trend = []
