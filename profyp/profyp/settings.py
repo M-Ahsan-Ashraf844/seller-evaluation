@@ -140,15 +140,13 @@ LOGOUT_REDIRECT_URL = '/accounts/login/'
 # ========================
 # Security for Production
 # ========================
+CSRF_TRUSTED_ORIGINS = [
+    "https://seller-evaluation.onrender.com"
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 if not DEBUG:
-
-    CSRF_TRUSTED_ORIGINS = [
-        "https://seller-evaluation.onrender.com"
-    ]
-
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
-
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
