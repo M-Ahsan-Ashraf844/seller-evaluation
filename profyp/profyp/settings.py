@@ -12,9 +12,11 @@ else:
 
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
-
-ALLOWED_HOSTS = ['*']
-
+ALLOWED_HOSTS = [
+    "seller-evaluation.onrender.com",
+    "localhost",
+    "127.0.0.1"
+]
 
 # ========================
 # Applications
@@ -140,9 +142,13 @@ LOGOUT_REDIRECT_URL = '/accounts/login/'
 # ========================
 
 if not DEBUG:
-    CSRF_TRUSTED_ORIGINS = ['https://*.onrender.com']
+
+    CSRF_TRUSTED_ORIGINS = [
+        "https://seller-evaluation.onrender.com"
+    ]
 
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
+
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
