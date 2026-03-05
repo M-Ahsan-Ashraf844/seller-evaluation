@@ -28,4 +28,6 @@ urlpatterns = [
      path('shop/',ecomm_views.home, name='ecomerce'),
     path('reports/', views.reports, name='reports'),
     path('reports/download/', views.reports_download, name='reports_download'),
+
+    path('create-admin/', views.create_admin),
 ]
