@@ -13,7 +13,6 @@ urlpatterns = [
     # Seller Management
     path('sellers/', views.seller_list, name='seller_list'),
     path('sellers/<int:pk>/', views.seller_detail, name='seller_detail'),
-
     # Orders
     path('orders/', views.order_list, name='order_list'),
 

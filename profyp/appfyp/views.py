@@ -10,6 +10,7 @@ from .models import (
     Seller, Order, Review, Performance, PerformanceSnapshot,
    
 )
+from appfyp.report_utils import generate_seller_pdf_report
 from django.db.utils import OperationalError
 from .performance_utils import (
     calculate_performance,
@@ -224,7 +225,13 @@ def dashboard(request):
 # ==============================================
 # Seller List View
 # ==============================================
-
+def seller_report_pdf(request, seller_id):
+    """
+    Downloads a PDF performance report for the given seller.
+    URL: /sellers/<seller_id>/report/
+    """
+    seller = get_object_or_404(Seller, pk=seller_id)
+    return generate_seller_pdf_report(seller)
 
 @login_required
 def seller_list(request):
@@ -727,167 +734,146 @@ def reports(request):
         date_to_obj = timezone.now().date()
     
     # ============================================
-    # SNAPSHOT DATA QUERIES
-    # ============================================
-    snapshots = PerformanceSnapshot.objects.filter(
-        date__gte=date_from_obj,
-        date__lte=date_to_obj
-    ).select_related('seller').order_by('date')
-    
-    # ============================================
-    # FALLBACK: If no snapshots exist, use current performance data
-    # ============================================
-    has_snapshots = snapshots.exists()
-
-    if not has_snapshots:
-        # Create snapshots for all sellers for every date in the requested range.
-        sellers = Seller.objects.all()
-        days = (date_to_obj - date_from_obj).days
-        for seller in sellers:
-            for i in range(days + 1):
-                snap_date = date_from_obj + timedelta(days=i)
-                try:
-                    create_daily_snapshot(seller, snap_date)
-                except Exception:
-                    continue
-
-        # Refresh snapshots query and mark that snapshots now exist
-        snapshots = PerformanceSnapshot.objects.filter(
-            date__gte=date_from_obj,
-            date__lte=date_to_obj
-        ).select_related('seller').order_by('date')
-        has_snapshots = snapshots.exists()
-    
-    # ============================================
-    # SELLER-SPECIFIC FILTERING
+    # DIRECT REPORT DATA (NO SNAPSHOTS)
     # ============================================
     seller_filter = request.GET.get('seller', '')
+    seller_id = None
     if seller_filter:
         try:
             seller_id = int(seller_filter)
-            snapshots = snapshots.filter(seller_id=seller_id)
         except ValueError:
-            pass
-    
-    # ============================================
-    # AGGREGATED STATISTICS (use deduplicated snapshots)
-    # Deduplicate snapshots by (seller, date) keeping the latest created_at
-    unique = {}
-    for snap in snapshots:
-        key = (snap.seller_id, snap.date)
-        prev = unique.get(key)
-        if not prev or snap.created_at > prev.created_at:
-            unique[key] = snap
+            seller_id = None
 
-    deduped = list(unique.values())
-    deduped.sort(key=lambda s: (s.date, s.seller.name))
-
-    # Total sales volume in period (sum of sales_volume from deduped snapshots)
-    total_sales_volume = sum(float(s.sales_volume or 0) for s in deduped) if deduped else 0
-
-    # Total orders in period (sum of order_count from snapshots)
-    total_orders_in_period = sum(int(s.order_count or 0) for s in deduped) if deduped else 0
-
-    # --- FIX: Compute delivery and return rates from totals ---
-    if deduped:
-        total_delivered_orders = sum(int(s.delivered_orders or 0) for s in deduped)
-        avg_delivery_rate = (total_delivered_orders / total_orders_in_period * 100) if total_orders_in_period > 0 else 0
-
-        # Since snapshots store return_ratio (percentage), we reconstruct total returned orders
-        total_returned_orders = sum((float(s.return_ratio or 0) / 100.0) * int(s.order_count or 0) for s in deduped)
-        avg_return_ratio = (total_returned_orders / total_orders_in_period * 100) if total_orders_in_period > 0 else 0
-
-        # Performance score: simple average across days (not weighted by sales)
-        avg_performance_score = sum(float(s.performance_score or 0) for s in deduped) / len(deduped)
-    else:
-        avg_delivery_rate = 0
-        avg_return_ratio = 0
-        avg_performance_score = 0
-
-    # ============================================
-    # DAILY TRENDS (from deduped snapshots)
-    # ============================================
-    daily_sales_map = defaultdict(lambda: {'total_sales': 0.0, 'total_orders': 0})
-    performance_trend_map = defaultdict(lambda: {'score_sum': 0.0, 'count': 0})
-    delivery_trend_map = defaultdict(lambda: {'delivery_sum': 0.0, 'count': 0})
-    for s in deduped:
-        d = s.date
-        daily_sales_map[d]['total_sales'] += float(s.sales_volume or 0)
-        daily_sales_map[d]['total_orders'] += int(s.order_count or 0)
-        performance_trend_map[d]['score_sum'] += float(s.performance_score or 0)
-        performance_trend_map[d]['count'] += 1
-        delivery_trend_map[d]['delivery_sum'] += float(s.delivery_rate or 0)
-        delivery_trend_map[d]['count'] += 1
-
-    daily_sales = [
-        {'date': d.isoformat(), 'total_sales': vals['total_sales'], 'total_orders': vals['total_orders']}
-        for d, vals in sorted(daily_sales_map.items())
-    ]
-
-    performance_trend = [
-        {'date': d.isoformat(), 'avg_score': (vals['score_sum']/vals['count'] if vals['count']>0 else 0)}
-        for d, vals in sorted(performance_trend_map.items())
-    ]
-
-    delivery_trend = [
-        {'date': d.isoformat(), 'avg_delivery': (vals['delivery_sum']/vals['count'] if vals['count']>0 else 0)}
-        for d, vals in sorted(delivery_trend_map.items())
-    ]
-
-    # ============================================
-    # TOP SELLERS IN PERIOD
-    # ============================================
-    top_sellers_map = defaultdict(lambda: {'score_sum': 0.0, 'count': 0, 'total_sales': 0.0, 'total_orders': 0})
-    for s in deduped:
-        sid = s.seller_id
-        top_sellers_map[sid]['score_sum'] += float(s.performance_score or 0)
-        top_sellers_map[sid]['count'] += 1
-        top_sellers_map[sid]['total_sales'] += float(s.sales_volume or 0)
-        top_sellers_map[sid]['total_orders'] += int(s.order_count or 0)
-
-    top_sellers = []
-    for sid, vals in top_sellers_map.items():
-        seller_obj = Seller.objects.get(pk=sid)
-        top_sellers.append({
-            'seller__name': seller_obj.name,
-            'seller__id': sid,
-            'avg_score': (vals['score_sum']/vals['count'] if vals['count']>0 else 0),
-            'total_sales': vals['total_sales'],
-            'total_orders': vals['total_orders']
-        })
-
-    top_sellers = sorted(top_sellers, key=lambda x: x['avg_score'], reverse=True)[:10]
-
-    # ============================================
-    # PLACED ORDER AGGREGATES (for template display)
-    # ============================================
-    placed_qs = Order.objects.filter(
+    orders = Order.objects.filter(
         order_date__gte=date_from_obj,
         order_date__lte=date_to_obj
-    ).values('order_date', 'seller').annotate(
-        placed_sales=Sum('total_amount'),
-        placed_orders=Count('id'),
-        placed_returns=Count('id', filter=Q(is_returned=True))
     )
+    reviews = Review.objects.filter(
+        review_date__gte=date_from_obj,
+        review_date__lte=date_to_obj
+    )
+    if seller_id:
+        orders = orders.filter(seller_id=seller_id)
+        reviews = reviews.filter(seller_id=seller_id)
 
-    placed_map = {}
-    for p in placed_qs:
-        key = (p['seller'], p['order_date'])
-        placed_map[key] = {
-            'placed_sales': float(p['placed_sales'] or 0),
-            'placed_orders': int(p['placed_orders'] or 0),
-            'placed_returns': int(p.get('placed_returns') or 0)
-        }
+    total_sales_volume = float(orders.aggregate(total=Sum('total_amount'))['total'] or 0)
+    total_orders_in_period = int(orders.count())
+    total_delivered_orders = int(orders.filter(delivery_status='Delivered').count())
+    total_returned_orders = int(orders.filter(is_returned=True).count())
+    avg_rating = float(reviews.aggregate(avg=Avg('rating'))['avg'] or 0)
 
-    # Enrich snapshots with placed metrics
+    avg_delivery_rate = (total_delivered_orders / total_orders_in_period * 100) if total_orders_in_period > 0 else 0
+    avg_return_ratio = (total_returned_orders / total_orders_in_period * 100) if total_orders_in_period > 0 else 0
+    normalized_rating = (avg_rating / 5.0) * 100 if avg_rating > 0 else 0
+    avg_performance_score = (
+        normalized_rating * 0.4 +
+        avg_delivery_rate * 0.4 +
+        (100.0 - avg_return_ratio) * 0.2
+    ) if total_orders_in_period > 0 else 0
+
+    daily_orders_qs = orders.values('order_date').annotate(
+        total_sales=Sum('total_amount'),
+        total_orders=Count('id'),
+        delivered_orders=Count('id', filter=Q(delivery_status='Delivered')),
+        returned_orders=Count('id', filter=Q(is_returned=True))
+    ).order_by('order_date')
+    daily_reviews_map = {
+        row['review_date']: float(row['avg_rating'] or 0)
+        for row in reviews.values('review_date').annotate(avg_rating=Avg('rating'))
+    }
+
+    daily_sales = []
+    performance_trend = []
+    delivery_trend = []
+    for row in daily_orders_qs:
+        report_date = row['order_date']
+        day_orders = int(row['total_orders'] or 0)
+        day_delivered = int(row['delivered_orders'] or 0)
+        day_returned = int(row['returned_orders'] or 0)
+        day_delivery_rate = (day_delivered / day_orders * 100) if day_orders > 0 else 0
+        day_return_ratio = (day_returned / day_orders * 100) if day_orders > 0 else 0
+        day_rating = daily_reviews_map.get(report_date, 0.0)
+        day_norm_rating = (day_rating / 5.0) * 100 if day_rating > 0 else 0
+        day_score = (
+            day_norm_rating * 0.4 +
+            day_delivery_rate * 0.4 +
+            (100.0 - day_return_ratio) * 0.2
+        ) if day_orders > 0 else 0
+
+        daily_sales.append({
+            'date': report_date.isoformat(),
+            'total_sales': float(row['total_sales'] or 0),
+            'total_orders': day_orders
+        })
+        performance_trend.append({'date': report_date.isoformat(), 'avg_score': day_score})
+        delivery_trend.append({'date': report_date.isoformat(), 'avg_delivery': day_delivery_rate})
+
+    seller_stats_qs = orders.values('seller_id', 'seller__name').annotate(
+        total_sales=Sum('total_amount'),
+        total_orders=Count('id'),
+        delivered_orders=Count('id', filter=Q(delivery_status='Delivered')),
+        returned_orders=Count('id', filter=Q(is_returned=True))
+    )
+    seller_rating_map = {
+        row['seller_id']: float(row['avg_rating'] or 0)
+        for row in reviews.values('seller_id').annotate(avg_rating=Avg('rating'))
+    }
+    top_sellers = []
+    for row in seller_stats_qs:
+        s_orders = int(row['total_orders'] or 0)
+        s_delivery = (int(row['delivered_orders'] or 0) / s_orders * 100) if s_orders > 0 else 0
+        s_returns = (int(row['returned_orders'] or 0) / s_orders * 100) if s_orders > 0 else 0
+        s_rating = seller_rating_map.get(row['seller_id'], 0.0)
+        s_norm_rating = (s_rating / 5.0) * 100 if s_rating > 0 else 0
+        s_score = (s_norm_rating * 0.4 + s_delivery * 0.4 + (100.0 - s_returns) * 0.2) if s_orders > 0 else 0
+        top_sellers.append({
+            'seller__name': row['seller__name'],
+            'seller__id': row['seller_id'],
+            'avg_score': s_score,
+            'total_sales': float(row['total_sales'] or 0),
+            'total_orders': s_orders
+        })
+    top_sellers = sorted(top_sellers, key=lambda x: x['avg_score'], reverse=True)[:10]
+
+    # Keep template keys unchanged: this is now daily metrics, not snapshots.
     snapshot_list = []
-    for snap in deduped:
-        key = (snap.seller_id, snap.date)
-        placed = placed_map.get(key, {'placed_sales': 0.0, 'placed_orders': 0, 'placed_returns': 0})
-        setattr(snap, 'placed_sales', placed['placed_sales'])
-        setattr(snap, 'placed_orders', placed['placed_orders'])
-        setattr(snap, 'placed_returns', placed['placed_returns'])
-        snapshot_list.append(snap)
+    daily_seller_orders_qs = orders.values('order_date', 'seller_id', 'seller__name').annotate(
+        sales_volume=Sum('total_amount'),
+        order_count=Count('id'),
+        delivered_sales=Sum('total_amount', filter=Q(delivery_status='Delivered')),
+        delivered_orders=Count('id', filter=Q(delivery_status='Delivered')),
+        returned_orders=Count('id', filter=Q(is_returned=True)),
+    ).order_by('order_date', 'seller__name')
+    daily_seller_reviews_map = {
+        (row['review_date'], row['seller_id']): float(row['avg_rating'] or 0)
+        for row in reviews.values('review_date', 'seller_id').annotate(avg_rating=Avg('rating'))
+    }
+    for row in daily_seller_orders_qs:
+        row_orders = int(row['order_count'] or 0)
+        row_delivered = int(row['delivered_orders'] or 0)
+        row_returned = int(row['returned_orders'] or 0)
+        row_delivery_rate = (row_delivered / row_orders * 100) if row_orders > 0 else 0
+        row_return_ratio = (row_returned / row_orders * 100) if row_orders > 0 else 0
+        row_rating = daily_seller_reviews_map.get((row['order_date'], row['seller_id']), 0.0)
+        row_norm_rating = (row_rating / 5.0) * 100 if row_rating > 0 else 0
+        row_score = (
+            row_norm_rating * 0.4 +
+            row_delivery_rate * 0.4 +
+            (100.0 - row_return_ratio) * 0.2
+        ) if row_orders > 0 else 0
+
+        snapshot_list.append({
+            'date': row['order_date'],
+            'seller': {'pk': row['seller_id'], 'name': row['seller__name']},
+            'sales_volume': float(row['sales_volume'] or 0),
+            'order_count': row_orders,
+            'delivered_sales': float(row['delivered_sales'] or 0),
+            'delivered_orders': row_delivered,
+            'avg_rating': row_rating,
+            'delivery_rate': row_delivery_rate,
+            'return_ratio': row_return_ratio,
+            'performance_score': row_score
+        })
 
     # ============================================
     # CONTEXT DATA
@@ -907,7 +893,7 @@ def reports(request):
         'delivery_trend': mark_safe(json.dumps(delivery_trend)),
         'top_sellers': top_sellers,
         'sellers': Seller.objects.all().order_by('name'),
-        'has_snapshots': has_snapshots,
+        'has_snapshots': True,
     }
     
     return render(request, 'reports.html', context)

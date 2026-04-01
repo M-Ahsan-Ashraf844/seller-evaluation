@@ -5,14 +5,6 @@
 {% block page_title %}Performance Reports & Analytics{% endblock %}
 
 {% block content %}
-{% if not has_snapshots %}
-<div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
-    <i class="fas fa-info-circle me-2"></i>
-    <strong>Note:</strong> Performance snapshots are being created automatically. 
-    If you have sellers with orders, snapshots will be generated for the selected date range.
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
-{% endif %}
 <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0 fw-semibold">Report Filters</h5>
@@ -125,7 +117,7 @@
     <div class="col-12 col-lg-6">
         <div class="card h-100">
             <div class="card-header">
-                <h5 class="mb-0 fw-semibold">Top Performers (Period)</h5>
+                <h5 class="mb-0 fw-semibold">Top Performers (Period Averages)</h5>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -159,16 +151,8 @@
                             {% empty %}
                                 <tr>
                                     <td colspan="4" class="text-center text-muted py-3">
-                                        {% if not has_snapshots %}
-                                            <strong>No snapshot data available.</strong>
-                                            <br><small class="text-info">
-                                                Snapshots are being created automatically. 
-                                                Try refreshing the page or check back later.
-                                            </small>
-                                        {% else %}
-                                            No sellers found for selected period.
-                                            <br><small>Try adjusting the date range or filters.</small>
-                                        {% endif %}
+                                        No sellers found for selected period.
+                                        <br><small>Try adjusting the date range or filters.</small>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -181,9 +165,9 @@
 </div>
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 fw-semibold">Detailed Performance Snapshots</h5>
+        <h5 class="mb-0 fw-semibold">Detailed Daily Metrics</h5>
         <span class="badge bg-soft-primary text-dark">
-            {{ snapshot_count }} snapshot{{ snapshot_count|pluralize }}
+            {{ snapshot_count }} row{{ snapshot_count|pluralize }}
         </span>
     </div>
     <div class="card-body p-0">
@@ -224,22 +208,8 @@
                     {% empty %}
                         <tr>
                             <td colspan="10" class="text-center text-muted py-3">
-                                {% if not has_snapshots %}
-                                    <strong>No snapshots found for selected period.</strong>
-                                    <br><small class="text-info">
-                                        <i class="fas fa-info-circle me-1"></i>
-                                        Snapshots are being created automatically. 
-                                        If you have sellers with orders, snapshots will be generated.
-                                    </small>
-                                    <br><small class="mt-2 d-block">
-                                        <a href="{% url 'dashboard' %}" class="text-decoration-none">
-                                            <i class="fas fa-arrow-left me-1"></i> Go to Dashboard
-                                        </a>
-                                    </small>
-                                {% else %}
-                                    No snapshots found for selected period.
-                                    <br><small>Try adjusting the date range or select a different seller.</small>
-                                {% endif %}
+                                No data found for selected period.
+                                <br><small>Try adjusting the date range or select a different seller.</small>
                             </td>
                         </tr>
                     {% endfor %}

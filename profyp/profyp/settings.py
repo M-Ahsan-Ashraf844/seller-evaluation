@@ -140,6 +140,9 @@ LOGOUT_REDIRECT_URL = '/accounts/login/'
 # ========================
 # Security for Production
 # ========================
+# Local development note:
+# `python manage.py runserver` is HTTP-only by default.
+# Use http://127.0.0.1:8000 (not https://) to avoid TLS handshake 400 logs.
 CSRF_TRUSTED_ORIGINS = [
     "https://seller-evaluation.onrender.com"
 ]
