@@ -902,6 +902,8 @@ def reports(request):
 def reports_download(request):
     """Return CSV download of the current reports selection."""
     from django.http import HttpResponse
+    import csv
+
     # parse dates and filters (same defaults)
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
@@ -917,72 +919,77 @@ def reports_download(request):
         date_from_obj = timezone.now().date() - timedelta(days=30)
         date_to_obj = timezone.now().date()
 
-    snapshots_qs = PerformanceSnapshot.objects.filter(
-        date__gte=date_from_obj,
-        date__lte=date_to_obj
-    ).select_related('seller').order_by('date')
+    seller_filter = request.GET.get('seller', '')
+    seller_id = None
+    if seller_filter:
+        try:
+            seller_id = int(seller_filter)
+        except ValueError:
+            seller_id = None
 
-    # ensure snapshots exist (create if missing)
-    if not snapshots_qs.exists():
-        sellers = Seller.objects.all()
-        for seller in sellers:
-            today = timezone.now().date()
-            yesterday = today - timedelta(days=1)
-            if date_from_obj <= today <= date_to_obj:
-                create_daily_snapshot(seller, today)
-            if date_from_obj <= yesterday <= date_to_obj:
-                create_daily_snapshot(seller, yesterday)
-        snapshots_qs = PerformanceSnapshot.objects.filter(
-            date__gte=date_from_obj,
-            date__lte=date_to_obj
-        ).select_related('seller').order_by('date')
-
-    # Deduplicate same as reports view
-    unique = {}
-    for snap in snapshots_qs:
-        key = (snap.seller_id, snap.date)
-        prev = unique.get(key)
-        if not prev or snap.created_at > prev.created_at:
-            unique[key] = snap
-    deduped = list(unique.values())
-    deduped.sort(key=lambda s: (s.date, s.seller.name))
+    orders = Order.objects.filter(
+        order_date__gte=date_from_obj,
+        order_date__lte=date_to_obj
+    )
+    reviews = Review.objects.filter(
+        review_date__gte=date_from_obj,
+        review_date__lte=date_to_obj
+    )
+    if seller_id:
+        orders = orders.filter(seller_id=seller_id)
+        reviews = reviews.filter(seller_id=seller_id)
 
     # Build CSV
-    import csv
     response = HttpResponse(content_type='text/csv')
     filename = f"performance_report_{date_from_obj.isoformat()}_{date_to_obj.isoformat()}.csv"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     writer = csv.writer(response)
-    writer.writerow(['Date','Seller','Placed Sales','Placed Orders','Placed Returns','Delivered Sales','Delivered Orders','Delivered Returns','Avg Rating','Delivery Rate','Return Ratio','Score'])
+    writer.writerow([
+        'Date', 'Seller', 'Placed Sales', 'Placed Orders', 'Placed Returns',
+        'Delivered Sales', 'Delivered Orders', 'Delivered Returns',
+        'Avg Rating', 'Delivery Rate', 'Return Ratio', 'Performance Score'
+    ])
 
-    for snap in deduped:
-        # placed metrics
-        placed_sales = 0.0
-        placed_orders = 0
-        placed_returns = 0
-        # find placed metrics via ORM
-        p = Order.objects.filter(seller=snap.seller, order_date=snap.date).aggregate(total=Sum('total_amount'), orders=Count('id'), returns=Count('id', filter=Q(is_returned=True)))
-        placed_sales = float(p['total'] or 0)
-        placed_orders = int(p['orders'] or 0)
-        placed_returns = int(p['returns'] or 0)
+    daily_seller_orders_qs = orders.values('order_date', 'seller_id', 'seller__name').annotate(
+        sales_volume=Sum('total_amount'),
+        order_count=Count('id'),
+        placed_returns=Count('id', filter=Q(is_returned=True)),
+        delivered_sales=Sum('total_amount', filter=Q(delivery_status='Delivered')),
+        delivered_orders=Count('id', filter=Q(delivery_status='Delivered')),
+    ).order_by('order_date', 'seller__name')
 
-        delivered_returns = snap.order_count and int(PerformanceSnapshot.objects.filter(pk=snap.pk).aggregate(returns=Sum('order_count'))['returns'] or 0)
-        # delivered_returns not stored separately; use snap.return_ratio * order_count/100 if available
-        delivered_returns = int(round((snap.return_ratio/100.0) * snap.order_count)) if snap.order_count else 0
+    daily_seller_reviews_map = {
+        (row['review_date'], row['seller_id']): float(row['avg_rating'] or 0)
+        for row in reviews.values('review_date', 'seller_id').annotate(avg_rating=Avg('rating'))
+    }
+
+    for row in daily_seller_orders_qs:
+        row_orders = int(row['order_count'] or 0)
+        row_delivered = int(row['delivered_orders'] or 0)
+        row_returns = int(row['placed_returns'] or 0)
+        row_delivery_rate = (row_delivered / row_orders * 100) if row_orders > 0 else 0
+        row_return_ratio = (row_returns / row_orders * 100) if row_orders > 0 else 0
+        row_rating = daily_seller_reviews_map.get((row['order_date'], row['seller_id']), 0.0)
+        row_norm_rating = (row_rating / 5.0) * 100 if row_rating > 0 else 0
+        row_score = (
+            row_norm_rating * 0.4 +
+            row_delivery_rate * 0.4 +
+            (100.0 - row_return_ratio) * 0.2
+        ) if row_orders > 0 else 0
 
         writer.writerow([
-            snap.date.isoformat(),
-            snap.seller.name,
-            f"{placed_sales:.2f}",
-            placed_orders,
-            placed_returns,
-            f"{float(snap.sales_volume):.2f}",
-            snap.order_count,
-            delivered_returns,
-            f"{snap.avg_rating:.2f}",
-            f"{snap.delivery_rate:.2f}",
-            f"{snap.return_ratio:.2f}",
-            f"{snap.performance_score:.2f}",
+            row['order_date'].isoformat(),
+            row['seller__name'],
+            f"{float(row['sales_volume'] or 0):.2f}",
+            row_orders,
+            row_returns,
+            f"{float(row['delivered_sales'] or 0):.2f}",
+            row_delivered,
+            row_returns,
+            f"{row_rating:.2f}",
+            f"{row_delivery_rate:.2f}",
+            f"{row_return_ratio:.2f}",
+            f"{row_score:.2f}",
         ])
 
     return response
